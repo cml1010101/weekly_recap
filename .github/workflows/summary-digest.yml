@@ -15,7 +15,7 @@ jobs:
       # This is the crucial new step
       - name: Install dependencies
         run: npm install
-        working-directory: ./path/to/your/action # Make sure to point to the correct directory
+        working-directory: ./ # Make sure to point to the correct directory
 
       - name: Run repo summary action
         id: summary-action
