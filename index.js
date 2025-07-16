@@ -153,13 +153,13 @@ async function run() {
     // Example: https://api.github.com/repos/octocat/Spoon-Knife/discussions/categories
     const discussionCategoryId = 'DIC_kwDOJ_f37s4CUFqO'; // <<< REPLACE THIS WITH YOUR ACTUAL CATEGORY ID >>>
 
-    await octokit.rest.discussions.create({
-      owner: repoOwner,
-      repo: repoName,
-      title: discussionTitle,
-      body: summary,
-      category_id: discussionCategoryId, // This is a REQUIRED parameter
-    });
+    await octokit.request('POST /repos/{owner}/{repo}/discussions', {
+        owner: repoOwner,
+        repo: repoName,
+        title: discussionTitle,
+        body: summary,
+        category_id: discussionCategoryId,
+      });
 
     core.info('Successfully created summary discussion!');
 
