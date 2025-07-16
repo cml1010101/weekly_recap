@@ -17,35 +17,81 @@ async function run() {
       owner: repoOwner,
       repo: repoName,
       state: 'all', // Get both open and closed
+      per_page: 100, // Fetch up to 100 issues
     });
 
-    // 2. Fetch Pull Requests
-    core.info('Fetching pull requests...');
+    // 2. Fetch Pull Requests and their diffs
+    core.info('Fetching pull requests and their diffs...');
     const prs = await octokit.paginate(octokit.rest.pulls.list, {
       owner: repoOwner,
       repo: repoName,
       state: 'all', // Get both open and closed
+      per_page: 50, // Limit to a reasonable number of PRs to fetch diffs for
     });
-    
-    // For a more comprehensive summary, you would get more data on each PR,
-    // like commits and diffs. The `pulls.list` endpoint doesn't return
-    // this by default. You would need to loop through each PR and call
-    // `octokit.rest.pulls.listCommits` and `octokit.rest.pulls.get`.
 
-    // 3. Fetch recent commits to main branch
-    core.info('Fetching recent commits to main...');
+    const prsWithDiffs = [];
+    for (const pr of prs) {
+      try {
+        // Fetch the full PR details including the diff
+        const prDetails = await octokit.rest.pulls.get({
+          owner: repoOwner,
+          repo: repoName,
+          pull_number: pr.number,
+          mediaType: {
+            format: 'diff' // Request the diff format
+          }
+        });
+        // The diff content is directly in prDetails.data
+        prsWithDiffs.push({
+          ...pr,
+          diff: prDetails.data // Store the diff content
+        });
+        core.info(`Fetched diff for PR #${pr.number}`);
+      } catch (prError) {
+        core.warning(`Could not fetch diff for PR #${pr.number}: ${prError.message}`);
+        prsWithDiffs.push(pr); // Add PR without diff if fetching fails
+      }
+    }
+
+    // 3. Fetch recent commits to main branch and their diffs
+    core.info('Fetching recent commits to main and their diffs...');
     const commits = await octokit.paginate(octokit.rest.repos.listCommits, {
       owner: repoOwner,
       repo: repoName,
       sha: 'main', // Or your default branch name
-      per_page: 50, // Limit to a reasonable number of recent commits
+      per_page: 30, // Limit to a reasonable number of recent commits to fetch diffs for
     });
+
+    const commitsWithDiffs = [];
+    for (const commit of commits) {
+      try {
+        // Fetch the full commit details including the diff
+        const commitDetails = await octokit.rest.repos.getCommit({
+          owner: repoOwner,
+          repo: repoName,
+          ref: commit.sha,
+          mediaType: {
+            format: 'diff' // Request the diff format
+          }
+        });
+        // The diff content is directly in commitDetails.data
+        commitsWithDiffs.push({
+          ...commit,
+          diff: commitDetails.data // Store the diff content
+        });
+        core.info(`Fetched diff for commit ${commit.sha.substring(0, 7)}`);
+      } catch (commitError) {
+        core.warning(`Could not fetch diff for commit ${commit.sha.substring(0, 7)}: ${commitError.message}`);
+        commitsWithDiffs.push(commit); // Add commit without diff if fetching fails
+      }
+    }
 
     // 4. Construct the prompt for Gemini
     let prompt = `
-      Please provide a summary and digest of the recent activity in a GitHub repository. 
-      Analyze the following issues, pull requests, and commits to the main branch. 
+      Please provide a comprehensive summary and digest of the recent activity in a GitHub repository.
+      Analyze the following issues, pull requests (including their diffs), and commits to the main branch (including their diffs).
       Focus on summarizing key themes, significant changes, and overall progress.
+      Highlight important issues, major features or fixes from pull requests, and the nature of changes in recent main branch commits.
 
       ---
       ISSUES:
@@ -53,31 +99,34 @@ async function run() {
         - #${issue.number}: ${issue.title}
           State: ${issue.state}
           Author: ${issue.user.login}
-          Body: ${issue.body}
+          Body: ${issue.body ? issue.body.substring(0, 500) + (issue.body.length > 500 ? '...' : '') : 'No description'}
       `).join('\n')}
 
       ---
       PULL REQUESTS:
-      ${prs.map(pr => `
+      ${prsWithDiffs.map(pr => `
         - #${pr.number}: ${pr.title}
           State: ${pr.state}
           Author: ${pr.user.login}
-          Body: ${pr.body}
+          Body: ${pr.body ? pr.body.substring(0, 500) + (pr.body.length > 500 ? '...' : '') : 'No description'}
           URL: ${pr.html_url}
+          ${pr.diff ? `Diff:\n\`\`\`diff\n${pr.diff.substring(0, 2000) + (pr.diff.length > 2000 ? '...' : '')}\n\`\`\`` : 'No diff available.'}
       `).join('\n')}
 
       ---
-      COMMITS TO MAIN:
-      ${commits.map(commit => `
+      COMMITS TO MAIN BRANCH:
+      ${commitsWithDiffs.map(commit => `
         - ${commit.sha.substring(0, 7)}: ${commit.commit.message}
           Author: ${commit.commit.author.name}
+          Date: ${commit.commit.author.date}
+          ${commit.diff ? `Diff:\n\`\`\`diff\n${commit.diff.substring(0, 1000) + (commit.diff.length > 1000 ? '...' : '')}\n\`\`\`` : 'No diff available.'}
       `).join('\n')}
 
       ---
       SUMMARY:
-      (Provide a concise, easy-to-read summary of the above data. Structure it with clear headings for "Issues Summary", "Pull Requests Summary", and "Recent Main Branch Commits". Do not make up any information.)
+      (Provide a concise, easy-to-read summary of the above data. Structure it with clear headings for "Issues Summary", "Pull Requests Summary", and "Recent Main Branch Commits". Focus on the essence of the changes and discussions. Do not make up any information.)
     `;
-    
+
     // 5. Send to Gemini API for summarization
     core.info('Sending data to Gemini for summarization...');
     const genAI = new GoogleGenerativeAI(geminiApiKey);
@@ -89,17 +138,29 @@ async function run() {
     core.info('Summary received from Gemini.');
     core.info(summary);
 
-    // 6. Post the summary as an issue or comment
-    // Here, we'll create a new issue for the summary digest.
-    core.info('Posting summary as a new issue...');
-    await octokit.rest.issues.create({
+    // 6. Post summary as a new discussion
+    core.info('Posting summary as a new discussion...');
+    const discussionTitle = `Repo Digest - ${new Date().toLocaleDateString()} for ${repoOwner}/${repoName}`;
+    // You'll need to ensure your repository has GitHub Discussions enabled
+    // and that the GITHUB_TOKEN has `discussions:write` permission.
+    // Also, you need to provide a category_id for the discussion.
+    // For simplicity, I'm hardcoding a placeholder category_id.
+    // In a real scenario, you might fetch this dynamically or make it an input.
+    
+    // To find category_id: You can use GitHub API:
+    // GET /repos/{owner}/{repo}/discussions/categories
+    // Or manually get it from your repo's Discussion settings.
+    const discussionCategoryId = 'DIC_kwDOJ_f37s4CUFqO'; // Placeholder: Replace with an actual category ID from your repo
+
+    await octokit.rest.discussions.create({
       owner: repoOwner,
       repo: repoName,
-      title: `Daily Repo Digest - ${new Date().toLocaleDateString()}`,
+      title: discussionTitle,
       body: summary,
+      category_id: discussionCategoryId,
     });
 
-    core.info('Successfully created summary issue!');
+    core.info('Successfully created summary discussion!');
 
   } catch (error) {
     core.setFailed(error.message);
