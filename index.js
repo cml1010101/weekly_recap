@@ -142,22 +142,11 @@ async function run() {
     core.info('Posting summary as a new discussion...');
     const discussionTitle = `Repo Digest - ${new Date().toLocaleDateString()} for ${repoOwner}/${repoName}`;
     // You'll need to ensure your repository has GitHub Discussions enabled
-    // and that the GITHUB_TOKEN has `discussions:write` permission.
-    // Also, you need to provide a category_id for the discussion.
-    // For simplicity, I'm hardcoding a placeholder category_id.
-    // In a real scenario, you might fetch this dynamically or make it an input.
-    
-    // To find category_id: You can use GitHub API:
-    // GET /repos/{owner}/{repo}/discussions/categories
-    // Or manually get it from your repo's Discussion settings.
-    const discussionCategoryId = 'DIC_kwDOJ_f37s4CUFqO'; // Placeholder: Replace with an actual category ID from your repo
-
     await octokit.rest.discussions.create({
       owner: repoOwner,
       repo: repoName,
       title: discussionTitle,
       body: summary,
-      category_id: discussionCategoryId,
     });
 
     core.info('Successfully created summary discussion!');
