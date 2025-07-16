@@ -14,7 +14,7 @@ jobs:
 
       - name: Run repo summary action
         id: summary-action
-        uses: ./action.yml # Points to your JavaScript action
+        uses: . # Points to your JavaScript action
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
