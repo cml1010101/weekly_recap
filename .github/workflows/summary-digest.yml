@@ -1,9 +1,9 @@
 name: Generate Repo Digest
 
 on:
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *' # Runs once every night at midnight UTC
+    - cron: '0 0 * * *'
 
 jobs:
   summarize:
@@ -12,9 +12,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # This is the crucial new step
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./path/to/your/action # Make sure to point to the correct directory
+
       - name: Run repo summary action
         id: summary-action
-        uses: ./ # Points to your JavaScript action
+        uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
