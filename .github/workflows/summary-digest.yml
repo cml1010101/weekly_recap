@@ -1,4 +1,6 @@
 name: Generate Repo Digest
+permissions:
+  issues: write
 
 on:
   workflow_dispatch:
