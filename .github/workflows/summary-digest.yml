@@ -18,6 +18,10 @@ jobs:
       - name: Install dependencies
         run: npm install
         working-directory: ./ # Make sure to point to the correct directory
+      
+      - name: Build the action
+        run: npm run build
+        working-directory: ./ # Ensure this is the correct path to your action
 
       - name: Run repo summary action
         id: summary-action

@@ -15,4 +15,4 @@ inputs:
     required: true
 runs:
   using: "node20"
-  main: "index.ts"
+  main: "dist/index.js"

@@ -4,7 +4,8 @@
     "description": "A GitHub Action to summarize repo activity with Gemini AI",
     "main": "index.js",
     "scripts": {
-      "start": "node index.js"
+      "start": "node index.js",
+      "build": "tsc"
     },
     "dependencies": {
       "@actions/core": "^1.10.0",
