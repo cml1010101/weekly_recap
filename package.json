@@ -4,12 +4,13 @@
     "description": "A GitHub Action to summarize repo activity with Gemini AI",
     "main": "index.js",
     "scripts": {
-      "start": "node index.js",
-      "build": "tsc"
+        "start": "node index.js",
+        "build": "tsc"
     },
     "dependencies": {
-      "@actions/core": "^1.10.0",
-      "@actions/github": "^5.1.1",
-      "@google/generative-ai": "^0.11.3"
+        "@actions/core": "^1.10.0",
+        "@actions/github": "^5.1.1",
+        "@google/generative-ai": "^0.11.3",
+        "@types/node": "^24.0.14"
     }
-  }
+}
