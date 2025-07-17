@@ -1,6 +1,6 @@
-const core = require('@actions/core');
-const github = require('@actions/github');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import core from '@actions/core';
+import github from '@actions/github';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 async function run() {
   try {
@@ -29,7 +29,7 @@ async function run() {
       per_page: 50, // Limit to a reasonable number of PRs to fetch diffs for
     });
 
-    const prsWithDiffs = [];
+    const prsWithDiffs: Array<{ diff?: string } & typeof prs[0]> = [];
     for (const pr of prs) {
       try {
         // Fetch the full PR details including the diff
@@ -44,7 +44,7 @@ async function run() {
         // The diff content is directly in prDetails.data
         prsWithDiffs.push({
           ...pr,
-          diff: prDetails.data // Store the diff content
+          diff: prDetails.data.toString() // Convert the diff content to a string
         });
         core.info(`Fetched diff for PR #${pr.number}`);
       } catch (prError) {
@@ -62,7 +62,7 @@ async function run() {
       per_page: 30, // Limit to a reasonable number of recent commits to fetch diffs for
     });
 
-    const commitsWithDiffs = [];
+    const commitsWithDiffs: Array<{ diff?: string } & typeof commits[0]> = [];
     for (const commit of commits) {
       try {
         // Fetch the full commit details including the diff
@@ -77,7 +77,7 @@ async function run() {
         // The diff content is directly in commitDetails.data
         commitsWithDiffs.push({
           ...commit,
-          diff: commitDetails.data // Store the diff content
+          diff: commitDetails.data.files?.map(file => file.patch).join('\n') || '' // Extract the diff content from files and concatenate
         });
         core.info(`Fetched diff for commit ${commit.sha.substring(0, 7)}`);
       } catch (commitError) {
@@ -98,7 +98,7 @@ async function run() {
       ${issues.map(issue => `
         - #${issue.number}: ${issue.title}
           State: ${issue.state}
-          Author: ${issue.user.login}
+          Author: ${issue.user ? issue.user.login : 'Unknown'}
           Body: ${issue.body ? issue.body.substring(0, 500) + (issue.body.length > 500 ? '...' : '') : 'No description'}
       `).join('\n')}
 
@@ -107,7 +107,7 @@ async function run() {
       ${prsWithDiffs.map(pr => `
         - #${pr.number}: ${pr.title}
           State: ${pr.state}
-          Author: ${pr.user.login}
+          Author: ${pr.user ? pr.user.login : 'Unknown'}
           Body: ${pr.body ? pr.body.substring(0, 500) + (pr.body.length > 500 ? '...' : '') : 'No description'}
           URL: ${pr.html_url}
           ${pr.diff ? `Diff:\n\`\`\`diff\n${pr.diff.substring(0, 2000) + (pr.diff.length > 2000 ? '...' : '')}\n\`\`\`` : 'No diff available.'}
@@ -117,8 +117,8 @@ async function run() {
       COMMITS TO MAIN BRANCH:
       ${commitsWithDiffs.map(commit => `
         - ${commit.sha.substring(0, 7)}: ${commit.commit.message}
-          Author: ${commit.commit.author.name}
-          Date: ${commit.commit.author.date}
+          Author: ${commit.commit.author ? commit.commit.author.name : 'Unknown'}
+          Date: ${commit.commit.author ? commit.commit.author.date : 'Unknown'}
           ${commit.diff ? `Diff:\n\`\`\`diff\n${commit.diff.substring(0, 1000) + (commit.diff.length > 1000 ? '...' : '')}\n\`\`\`` : 'No diff available.'}
       `).join('\n')}
 
