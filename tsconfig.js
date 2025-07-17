@@ -1,6 +1,0 @@
-{
-    "compilerOptions": {
-      "lib": ["es2020", "dom"],
-      "checkJs": false
-    }
-}
