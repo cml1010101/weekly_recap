@@ -130,4 +130,4 @@ build
 .tmp/
 temp/
 
-index.js
+# Note: index.js is the compiled output needed for GitHub Actions and should be committed
