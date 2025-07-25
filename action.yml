@@ -13,6 +13,30 @@ inputs:
   repo_name:
     description: "The name of the repository."
     required: true
+  email_enabled:
+    description: "Whether to send email digest to contributors."
+    required: false
+    default: "false"
+  smtp_host:
+    description: "SMTP server host for sending emails."
+    required: false
+  smtp_port:
+    description: "SMTP server port."
+    required: false
+    default: "587"
+  smtp_user:
+    description: "SMTP username for authentication."
+    required: false
+  smtp_password:
+    description: "SMTP password for authentication."
+    required: false
+  from_email:
+    description: "Email address to send from."
+    required: false
+  from_name:
+    description: "Name to send email from."
+    required: false
+    default: "Repository Digest Bot"
 runs:
   using: "node20"
   main: "index.js"
