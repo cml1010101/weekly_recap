@@ -141,25 +141,39 @@ async function run() {
     // 6. Post summary as a new discussion
     core.info('Posting summary as a new discussion...');
     const discussionTitle = `Repo Digest - ${new Date().toLocaleDateString()} for ${repoOwner}/${repoName}`;
-    // You'll need to ensure your repository has GitHub Discussions enabled
-    // and that the GITHUB_TOKEN has `discussions:write` permission.
-    // Also, you need to provide a category_id for the discussion.
-    // To find category_id:
-    // 1. Go to your repository on GitHub.
-    // 2. Navigate to 'Discussions' tab.
-    // 3. Create a new discussion or click on an existing one.
-    // 4. Look at the URL: it might contain a category ID (e.g., in `.../discussions/categories/YOUR_CATEGORY_ID`).
-    // Alternatively, use the GitHub API: GET /repos/{owner}/{repo}/discussions/categories
-    // Example: https://api.github.com/repos/octocat/Spoon-Knife/discussions/categories
-
-    await octokit.request('POST /repos/{owner}/{repo}/discussions', {
+    
+    try {
+      // First, fetch available discussion categories
+      core.info('Fetching discussion categories...');
+      const categoriesResponse = await octokit.request('GET /repos/{owner}/{repo}/discussions/categories', {
+        owner: repoOwner,
+        repo: repoName,
+      });
+      
+      if (categoriesResponse.data.length === 0) {
+        throw new Error('No discussion categories found. Please enable GitHub Discussions and create at least one category.');
+      }
+      
+      // Use the first available category (typically "General")
+      const categoryId = categoriesResponse.data[0].id;
+      core.info(`Using discussion category: ${categoriesResponse.data[0].name} (ID: ${categoryId})`);
+      
+      // Create the discussion with the required category_id
+      const discussionResponse = await octokit.request('POST /repos/{owner}/{repo}/discussions', {
         owner: repoOwner,
         repo: repoName,
         title: discussionTitle,
         body: summary,
+        category_id: categoryId,
       });
 
-    core.info('Successfully created summary discussion!');
+      core.info(`Successfully created summary discussion! URL: ${discussionResponse.data.html_url}`);
+      
+    } catch (discussionError) {
+      core.warning(`Failed to create discussion: ${discussionError.message}`);
+      core.info('Discussion creation failed, but summary was successfully generated.');
+      core.info('Make sure GitHub Discussions are enabled for this repository and the token has discussions:write permission.');
+    }
 
   } catch (error) {
     core.setFailed(error.message);
